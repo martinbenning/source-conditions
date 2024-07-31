@@ -2,6 +2,7 @@ from numpy import ones, prod, real, zeros
 from numpy.fft import fft2, fftshift, ifft2, ifftshift
 from scipy.linalg import hadamard
 from scipy.sparse import csr_matrix, diags, vstack
+from support_functions import fwht, ifwht, is_power_of_two
 
 class Difference_Gradient:    
 
@@ -30,6 +31,22 @@ class Difference_Gradient:
     def T(self):
         dimensions = [self.no_of_rows, self.no_of_columns]
         return Difference_Gradient(dimensions, transpose=not self.transpose)
+    
+class FWHT:
+    def __init__(self, transpose=False):
+        self.transpose = transpose
+
+    def __matmul__(self, argument):
+        if not is_power_of_two(len(argument)):
+            raise ValueError("Length of argument must be power of 2")
+        if self.transpose is False:
+            return fwht(argument.copy())
+        else:
+            return ifwht(argument.copy())
+        
+    @property
+    def T(self):
+        return FWHT(transpose=not self.transpose)
 
 class Fourier_Transform:
 
@@ -44,32 +61,7 @@ class Fourier_Transform:
 
     @property
     def T(self):
-        return Fourier_Transform(transpose=not self.transpose)
-    
-class Hadamard_Transform:
-
-    def __init__(self, dimensions, transpose=False):
-        self.transpose = transpose
-        self.no_of_rows, self.no_of_columns = dimensions
-        self.matrix_dimension = prod(dimensions)
-        if not self.is_power_of_two(self.matrix_dimension):
-            raise ValueError("Dimension must be power of 2")
-        self.H = hadamard(self.matrix_dimension, dtype=float)
-        self.H = csr_matrix(self.H)
-
-    def is_power_of_two(self, n):
-        return n > 0 and (n & (n - 1)) == 0
-
-    def __matmul__(self, argument):
-        if self.transpose is False:
-            return self.H @ argument.flatten()
-        else:
-            return self.H.T @ argument.flatten()
-
-    @property
-    def T(self):
-        dimensions = [self.no_of_rows, self.no_of_columns]
-        return Hadamard_Transform(dimensions, transpose=not self.transpose)        
+        return Fourier_Transform(transpose=not self.transpose)      
 
 class Subsampling:
 
@@ -89,23 +81,23 @@ class Subsampling:
     def T(self):
         return Subsampling(self.mask, transpose=not self.transpose)
     
-class Hadamard_Subsampling(Subsampling, Hadamard_Transform):
+class FWHT_Subsampling(Subsampling, FWHT):
 
-    def __init__(self, mask:bool, dimensions, transpose=False):
+    def __init__(self, mask:bool, transpose=False):
         Subsampling.__init__(self, mask, transpose)
-        Hadamard_Transform.__init__(self, dimensions, transpose)
+        FWHT.__init__(self, transpose)
 
     def __matmul__(self, argument):
         if self.transpose is False:
-            hadamard_image = Hadamard_Transform.__matmul__(self, argument)
+            hadamard_image = FWHT.__matmul__(self, argument)
             return Subsampling.__matmul__(self, hadamard_image)
         else:
             hadamard_image = Subsampling.__matmul__(self, argument)
-            return Hadamard_Transform.__matmul__(self, hadamard_image)
+            return FWHT.__matmul__(self, hadamard_image)
 
     @property
     def T(self):
-        return Hadamard_Subsampling(self.mask, self.H.shape, transpose=not self.transpose)
+        return FWHT_Subsampling(self.mask, transpose=not self.transpose)
 
 class Fourier_Subsampling(Subsampling, Fourier_Transform):
 

@@ -1,7 +1,27 @@
-from numpy import Inf, ones
+from numpy import asarray, concatenate, Inf, ones
 from numpy.linalg import norm
 from numpy.random import randn
 from scipy.sparse import csr_matrix, diags, identity, kron, vstack
+
+def fwht(x):
+    """Recursive Fast Walsh-Hadamard Transform of array x."""
+    x = asarray(x)
+    n = x.shape[0]
+    if n == 1:
+        return x
+    else:
+        x_even = fwht(x[::2])
+        x_odd = fwht(x[1::2])
+        combined = concatenate([x_even + x_odd, x_even - x_odd])
+        return combined
+
+def ifwht(x):
+    """Inverse Fast Walsh-Hadamard Transform of array x."""
+    x = fwht(x)
+    return x / x.shape[0]
+
+def is_power_of_two(n):
+        return n > 0 and (n & (n - 1)) == 0
 
 def norm_estimator(operator, tolerance=1e-3, max_no_of_iterations=150):    
 
